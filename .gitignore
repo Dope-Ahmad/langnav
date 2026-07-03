@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+venv/
+.env
+checkpoints/
+data/
+*.npz
+*.zip
+wandb/
+*.mp4
+*.gif
+Plan_Mds/
