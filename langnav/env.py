@@ -39,21 +39,21 @@ class HuskyTerrainEnv(gymnasium.Env):
                 mode = p.DIRECT
             self.client = p.connect(mode)
             p.setAdditionalSearchPath(pybullet_data.getDataPath())
-            p.resetSimulation(physicsClientId=self.client)
-            p.setGravity(0, 0, -9.8,
-                         physicsClientId=self.client)
+        p.resetSimulation(physicsClientId=self.client)
+        p.setGravity(0, 0, -9.8,
+                        physicsClientId=self.client)
 
-            self.terrain_id = p.loadURDF("plane.urdf",
+        self.terrain_id = p.loadURDF("plane.urdf",
                                          physicsClientId=self.client)
 
-            self.husky_id = p.loadURDF("r2d2.urdf",
+        self.husky_id = p.loadURDF("r2d2.urdf",
                                        basePosition=[0, 0, 1.0],
                                        physicsClientId=self.client)
 
-            self.step_count = 0
-            obs = np.zeros(self.observation_space.shape, dtype = np.float32)
-            info ={}
-            return obs, info
+        self.step_count = 0
+        obs = np.zeros(self.observation_space.shape, dtype = np.float32)
+        info ={}
+        return obs, info
 
     def step(self, action):
         p.stepSimulation(physicsClientId=self.client)
