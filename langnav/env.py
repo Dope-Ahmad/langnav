@@ -130,13 +130,20 @@ class HuskyTerrainEnv(gymnasium.Env):
         p.stepSimulation(physicsClientId=self.client)
         if self.render_mode == "human":
             time.sleep(1.0 / 240.0)
+
+        terminated, truncated, tipped, reached = self._check_termination()
+        reward, reward_info = self._compute_reward(action, tipped, reached)
+
+
         self.prev_action = action
         self.step_count += 1
         obs = self._get_obs()
         reward = 0.0
         terminate = False
         truncate = self.step_count >= 1000
-        info = {}
+        info = dict(reward_info)
+        info["tipped"] = tipped
+        info["reached"] = reached
         return obs, reward, terminate, truncate, info
     def render(self):
         if self.render_mode == "human":
@@ -219,4 +226,58 @@ class HuskyTerrainEnv(gymnasium.Env):
                               self.prev_action
                               ]).astype(np.float32)
         return obs
+
+    def _check_termination(self):
+        position, orientation = p.getBasePositionAndOrientation(self.husky_id, physicsClientId=self.client)
+        roll, pitch, yaw = p.getEulerFromQuaternion(orientation)
+        tipped: bool
+        if (abs(roll) > (np.pi/4)) or (abs(pitch) > (np.pi/4)):
+            tipped = True
+        else:
+            tipped = False
+
+        dx = self.goal_position[0] - position[0]
+        dy = self.goal_position[1] - position[1]
+        distance = np.sqrt(dx**2 + dy**2)
+        reached = bool(distance<0.5)
+
+        terminated = reached or tipped
+        truncated = self.step_count >= 1000
+        return terminated, truncated, reached, terminated
+
+    def _compute_reward(self, action, tipped, reached):
+        linear_velocity, anuglar_velocity = p.getBaseVelocity(self.husky_id, physicsClientId=self.client)
+        position, orientation = p.getBasePositionAndOrientation(self.husky_id, physicsClientId=self.client)
+        roll, pitch, yaw = p.getEulerFromQuaternion(orientation)
+
+        dx = self.goal_position[0] - position[0]
+        dy = self.goal_position[1] - position[1]
+        distance = np.sqrt(dx**2 + dy**2)
+        goal_direction = np.array([dx,dy], dtype=np.float32) / (distance+ 1e-6)
+        velocity_vector = np.array([linear_velocity[0], linear_velocity[1]], dtype=np.float32)
+        progress = float(np.dot(velocity_vector, goal_direction))
+        r_progress = 0.5 * progress
+
+        r_survival = 0.01
+        r_orientation = -0.3 * abs(roll) - 0.3 * abs(pitch)
+
+        jerk = action - self.prev_action
+        r_jerk = -0.05 * float(np.dot(jerk,jerk))
+
+        r_goal = 2.0 if reached else 0.0
+        r_tip = -5.0 if tipped else 0.0
+
+        total = r_tip + r_goal + r_jerk + r_progress + r_survival + r_orientation
+        details = {"r_progress": r_progress,
+        "r_survival": r_survival,
+        "r_orientation": r_orientation,
+        "r_jerk": r_jerk,
+        "r_goal": r_goal,
+        "r_tip": r_tip,
+        "reward_total": total}
+
+        return float(total), details
+
+
+
 
