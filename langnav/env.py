@@ -138,13 +138,10 @@ class HuskyTerrainEnv(gymnasium.Env):
         self.prev_action = action
         self.step_count += 1
         obs = self._get_obs()
-        reward = 0.0
-        terminate = False
-        truncate = self.step_count >= 1000
         info = dict(reward_info)
         info["tipped"] = tipped
         info["reached"] = reached
-        return obs, reward, terminate, truncate, info
+        return obs, reward, terminated, truncated, info
     def render(self):
         if self.render_mode == "human":
             return None
@@ -231,7 +228,7 @@ class HuskyTerrainEnv(gymnasium.Env):
         position, orientation = p.getBasePositionAndOrientation(self.husky_id, physicsClientId=self.client)
         roll, pitch, yaw = p.getEulerFromQuaternion(orientation)
         tipped: bool
-        if (abs(roll) > (np.pi/4)) or (abs(pitch) > (np.pi/4)):
+        if (abs(roll) > np.radians(25.0)) or (abs(pitch) > np.radians(35.0)):
             tipped = True
         else:
             tipped = False
@@ -243,7 +240,7 @@ class HuskyTerrainEnv(gymnasium.Env):
 
         terminated = reached or tipped
         truncated = self.step_count >= 1000
-        return terminated, truncated, reached, terminated
+        return terminated, truncated, tipped, reached
 
     def _compute_reward(self, action, tipped, reached):
         linear_velocity, anuglar_velocity = p.getBaseVelocity(self.husky_id, physicsClientId=self.client)
